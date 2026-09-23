@@ -67,6 +67,38 @@ const ROUTES = [
   { id: 'PKU-PLB', region: 'SUMATRA', originKey: 'PKU', destKey: 'PLB', origin: 'Pekanbaru',      destination: 'Palembang',      durationSeconds: 11, multiplier: 1.5 },
   { id: 'PLB-TKG', region: 'SUMATRA', originKey: 'PLB', destKey: 'TKG', origin: 'Palembang',      destination: 'Bandar Lampung', durationSeconds: 8,  multiplier: 1.2 }
 ];
+
+// Database Rute Ekspres Multi-Stop
+const MULTI_ROUTES = [
+  {
+    id: 'R_EXPRESS_JAWA_1',
+    name: 'Ekspres Argo Jawa (Jakarta - Semarang - Surabaya)',
+    region: 'JAWA',
+    stops: ['ST_JKT', 'ST_SMG', 'ST_SBY'],
+    distanceTotal: 780,
+    bonusMultiplier: 1.15
+  },
+  {
+    id: 'R_EXPRESS_SUMATRA_1',
+    name: 'Trans-Sumatra Express (Lampung - Palembang - Medan)',
+    region: 'SUMATRA',
+    stops: ['ST_LPG', 'ST_PLB', 'ST_MDN'],
+    distanceTotal: 1250,
+    bonusMultiplier: 1.20
+  }
+];
+
+// Konfigurasi Keseimbangan Permainan
+const GAME_BALANCE = {
+  ticketBasePrice: {
+    EKONOMI: 1200,
+    EKSEKUTIF: 2800
+  },
+  fuelCostPerKm: 15000,
+  maintenanceCostPerPercent: 2500000,
+  bankInterestRate: 0.03
+};
+
 // Database Cuaca
 const WEATHERS = {
   CLEAR: { name: 'Cereh ☀️', speedMultiplier: 1.0, fuelMultiplier: 1.0 },
@@ -117,3 +149,25 @@ const ACHIEVEMENTS = [
     reward: 150000000
   }
 ];
+
+// Database Level Masinis
+const DRIVER_LEVELS = {
+  PEMULA: {
+    name: 'Pemula',
+    salary: 200000,
+    bbmEfficiency: 1.0,
+    durabilityLoss: 1.0
+  },
+  SENIOR: {
+    name: 'Senior',
+    salary: 500000,
+    bbmEfficiency: 0.85,
+    durabilityLoss: 0.7
+  },
+  MASTER: {
+    name: 'Master',
+    salary: 1200000,
+    bbmEfficiency: 0.70,
+    durabilityLoss: 0.4
+  }
+};

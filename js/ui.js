@@ -1,7 +1,49 @@
 let financeChart = null;
 let activeMapRegion = 'JAWA';
+let currentMapScale = 1.0;
 
 const UI = {
+  zoomMap(direction) {
+    const canvas = document.getElementById('mapCanvas');
+    if (!canvas) return;
+
+    const minScale = 0.5;
+    const maxScale = 2.5;
+    const step = 0.25;
+
+    if (direction === 'in') currentMapScale = Math.min(maxScale, currentMapScale + step);
+    if (direction === 'out') currentMapScale = Math.max(minScale, currentMapScale - step);
+    if (direction === 'reset') currentMapScale = 1.0;
+
+    canvas.style.transform = `scale(${currentMapScale})`;
+    canvas.style.transformOrigin = 'top left';
+
+    if (typeof gameState !== 'undefined') gameState.currentMapScale = currentMapScale;
+    if (typeof Game !== 'undefined') Game.saveGame();
+  },
+
+  applyMapScale(scale) {
+    const canvas = document.getElementById('mapCanvas');
+    if (!canvas) return;
+
+    currentMapScale = Number.isFinite(scale) ? Math.min(2.5, Math.max(0.5, scale)) : 1.0;
+    canvas.style.transform = `scale(${currentMapScale})`;
+    canvas.style.transformOrigin = 'top left';
+
+  },
+
+  toggleTheme() {
+    document.body.classList.toggle('light-theme');
+    const isLight = document.body.classList.contains('light-theme');
+    localStorage.setItem('theme_mode', isLight ? 'light' : 'dark');
+  },
+
+  loadTheme() {
+    if (localStorage.getItem('theme_mode') === 'light') {
+      document.body.classList.add('light-theme');
+    }
+  },
+
   formatRupiah(number) {
     if (isNaN(number) || number === null || number === undefined) return 'Rp 0';
     return new Intl.NumberFormat('id-ID', {
@@ -20,6 +62,27 @@ const UI = {
     const eventElem = document.getElementById('current-event');
     if (weatherElem) weatherElem.innerText = weather ? weather.name : 'Cerah ☀️';
     if (eventElem) eventElem.innerText = currentEvent ? currentEvent.name : 'Hari Biasa';
+  },
+
+  renderUserProfile(userData = {}) {
+    const ownerElement = document.getElementById('display-owner');
+    const companyElement = document.getElementById('display-company');
+    const uidElement = document.getElementById('display-uid');
+
+    if (ownerElement) ownerElement.innerText = userData.ownerName || userData.owner || '-';
+    if (companyElement) companyElement.innerText = userData.companyName || userData.company || '-';
+    if (uidElement) uidElement.innerText = userData.uid || '-';
+  },
+
+  updateClockDisplay() {
+    const h = String(gameState.hour).padStart(2, '0');
+    const m = String(gameState.minute).padStart(2, '0');
+    const s = String(gameState.second).padStart(2, '0');
+    const clockElement = document.getElementById('clock-display');
+
+    if (clockElement) {
+      clockElement.innerText = `Hari ${gameState.day} | 🕒 ${h}:${m}:${s}`;
+    }
   },
 
   updateBankLoan(amount) {
@@ -127,6 +190,31 @@ const UI = {
     document.getElementById('free-k1').innerText = freeCoaches?.EKSEKUTIF || 0;
   },
 
+  renderDrivers(drivers) {
+    const driverList = document.getElementById('driver-list');
+    if (!driverList) return;
+
+    if (!drivers || drivers.length === 0) {
+      driverList.innerHTML = '<p class="empty-state">Belum ada masinis yang direkrut.</p>';
+      return;
+    }
+
+    driverList.innerHTML = drivers.map(driver => {
+      const level = DRIVER_LEVELS[driver.level] || DRIVER_LEVELS.PEMULA;
+      const assignment = driver.assignedLocoId
+        ? `Lokomotif: ${driver.assignedLocoId}`
+        : 'Belum ditugaskan';
+
+      return `
+        <div class="card-item">
+          <strong>👨‍✈️ ${driver.name}</strong>
+          <div><small>Level: <b>${level.name}</b> | Gaji: <b>${this.formatRupiah(level.salary)}/hari</b></small></div>
+          <div><small>${assignment}</small></div>
+        </div>
+      `;
+    }).join('');
+  },
+
   showSaveStatus(text) {
     const statusElem = document.getElementById('save-status');
     statusElem.innerText = text;
@@ -198,10 +286,10 @@ const UI = {
       <div class="card-item">
         <div style="display:flex; justify-content:space-between;">
           <span><strong>${trip.trainName}</strong> (${trip.origin} ➔ ${trip.destination})</span>
-          <span>${trip.progress}%</span>
+          <span>${Math.round((trip.progress || 0) * 100)}%</span>
         </div>
         <div class="progress-bar-bg">
-          <div class="progress-bar-fill" style="width: ${trip.progress}%"></div>
+          <div class="progress-bar-fill" style="width: ${Math.round((trip.progress || 0) * 100)}%"></div>
         </div>
         <small>Cuaca: <b>${trip.weather?.name || 'Cerah ☀️'}</b> | Estimasi Omset: ${this.formatRupiah(trip.revenue)} | BBM: ${this.formatRupiah(trip.fuelCost)} | Sisa: ${trip.timeLeft}s</small>
       </div>
@@ -217,6 +305,7 @@ const UI = {
     const animate = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const currentRegion = getCurrentRegionFn();
+      this.applyMapScale(gameState.currentMapScale);
 
       const filteredRoutes = ROUTES.filter(route => route.region === currentRegion);
       const filteredStations = Object.values(STATIONS).filter(station => station.region === currentRegion);
@@ -257,15 +346,12 @@ const UI = {
       // 3. Gambar Kereta Berjalan (Smooth Interpolation)
       const activeTrips = getActiveTripsFn();
       if (activeTrips && activeTrips.length > 0) {
-        const now = Date.now();
         activeTrips.forEach(trip => {
           const originSt = STATIONS[trip.originKey];
           const destSt = STATIONS[trip.destKey];
 
           if (originSt && destSt && originSt.region === currentRegion) {
-            // Hitung progress realtime berdasarkan timestamp
-            const elapsedTime = (now - trip.startTime) / 1000;
-            const currentProgress = Math.min(1, elapsedTime / trip.totalDuration);
+            const currentProgress = Math.min(1, trip.progress || 0);
 
             const currentX = originSt.x + (destSt.x - originSt.x) * currentProgress;
             const currentY = originSt.y + (destSt.y - originSt.y) * currentProgress;

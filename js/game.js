@@ -3,8 +3,13 @@ const SAVE_KEY = 'KMI_SAVE_DATA_V1';
 const DEFAULT_STATE = {
   money: 1000000000,
   day: 1,
+  hour: 6,
+  minute: 0,
+  second: 0,
   currentRegion: 'JAWA',
+  currentMapScale: 1.0,
   bankLoan: 0,
+  drivers: [],
   fleet: [],
   inventoryCoaches: {
     EKONOMI: 0,
@@ -25,8 +30,10 @@ const Game = {
   init() {
     this.loadGame();
     this.bindEvents();
+    UI.loadTheme();
     UI.initChart();
     this.refreshUI();
+    this.startGameClock();
     UI.startMapLoop(
       () => gameState.activeTrips,
       () => gameState.currentRegion || 'JAWA'
@@ -42,8 +49,13 @@ const Game = {
     const dataToSave = {
       money: isNaN(gameState.money) ? DEFAULT_STATE.money : gameState.money,
       day: gameState.day || 1,
+      hour: Number.isFinite(gameState.hour) ? gameState.hour : DEFAULT_STATE.hour,
+      minute: Number.isFinite(gameState.minute) ? gameState.minute : DEFAULT_STATE.minute,
+      second: Number.isFinite(gameState.second) ? gameState.second : DEFAULT_STATE.second,
       currentRegion: gameState.currentRegion || DEFAULT_STATE.currentRegion,
+      currentMapScale: Number.isFinite(gameState.currentMapScale) ? gameState.currentMapScale : DEFAULT_STATE.currentMapScale,
       bankLoan: gameState.bankLoan || 0,
+      drivers: gameState.drivers,
       fleet: cleanFleet,
       inventoryCoaches: gameState.inventoryCoaches,
       weather: gameState.weather,
@@ -63,8 +75,21 @@ const Game = {
         const parsed = JSON.parse(savedData);
         gameState.money = (parsed.money && !isNaN(parsed.money)) ? parsed.money : DEFAULT_STATE.money;
         gameState.day = parsed.day ?? DEFAULT_STATE.day;
+        gameState.hour = Number.isFinite(parsed.hour) ? parsed.hour : DEFAULT_STATE.hour;
+        gameState.minute = Number.isFinite(parsed.minute) ? parsed.minute : DEFAULT_STATE.minute;
+        gameState.second = Number.isFinite(parsed.second) ? parsed.second : DEFAULT_STATE.second;
         gameState.currentRegion = parsed.currentRegion === 'SUMATRA' ? 'SUMATRA' : 'JAWA';
+        gameState.currentMapScale = Number.isFinite(parsed.currentMapScale)
+          ? Math.min(2.5, Math.max(0.5, parsed.currentMapScale))
+          : DEFAULT_STATE.currentMapScale;
         gameState.bankLoan = Number.isFinite(parsed.bankLoan) ? Math.max(0, parsed.bankLoan) : DEFAULT_STATE.bankLoan;
+        gameState.drivers = Array.isArray(parsed.drivers)
+          ? parsed.drivers.map(driver => ({
+            ...driver,
+            level: DRIVER_LEVELS[driver.level] ? driver.level : 'PEMULA',
+            assignedLocoId: driver.assignedLocoId ?? null
+          }))
+          : [];
         gameState.fleet = (parsed.fleet || []).map(loco => {
           const defaultLoco = LOCOMOTIVES[loco.id] || {};
           return {
@@ -104,11 +129,14 @@ const Game = {
   },
 
   refreshUI() {
+    UI.applyMapScale(gameState.currentMapScale);
     this.checkAchievements();
     UI.setMapRegion(gameState.currentRegion || 'JAWA');
     UI.updateHeader(gameState.money, gameState.day, gameState.weather, gameState.currentEvent);
+    UI.updateClockDisplay();
     UI.updateBankLoan(gameState.bankLoan || 0);
     UI.updateFreeCoaches(gameState.inventoryCoaches);
+    UI.renderDrivers(gameState.drivers);
     UI.renderFleet(gameState.fleet);
     UI.renderActiveTrips(gameState.activeTrips);
     UI.updateFinanceChart(gameState.financeHistory);
@@ -152,9 +180,97 @@ const Game = {
     if (currentDayLog) currentDayLog.expense += amount;
   },
 
+  startGameClock() {
+    if (this.clockTimer) clearInterval(this.clockTimer);
+
+    this.clockTimer = setInterval(() => {
+      gameState.minute += 1;
+      gameState.second = 0;
+
+      if (gameState.minute >= 60) {
+        gameState.minute = 0;
+        gameState.hour += 1;
+      }
+
+      if (gameState.hour >= 24) {
+        gameState.hour = 0;
+        this.nextDay();
+      }
+
+      UI.updateClockDisplay();
+      this.updateActiveTrains();
+    }, 1000);
+  },
+
+  updateActiveTrains() {
+    gameState.activeTrips.slice().forEach(train => {
+      if (train.isAtTransitStation) {
+        if (!train.transitTimer) {
+          train.transitTimer = setTimeout(() => {
+            train.isAtTransitStation = false;
+            train.transitTimer = null;
+            UI.showNotification(`Kereta ${train.trainName} melanjutkan perjalanan dari stasiun transit.`);
+          }, 5000);
+        }
+        return;
+      }
+
+      const kmPerMinute = (train.speed || 80) / 60;
+      train.progress = Math.min(1, train.progress + kmPerMinute / train.routeDistance);
+      train.timeLeft = Math.max(0, train.timeLeft - 1);
+
+      if (train.progress >= 1) {
+        train.progress = 1;
+        this.onTrainArrived(train);
+      }
+    });
+
+    UI.renderActiveTrips(gameState.activeTrips);
+  },
+
+  onTrainArrived(train) {
+    gameState.activeTrips = gameState.activeTrips.filter(activeTrain => activeTrain.id !== train.id);
+    train.locoRef.status = 'Siap Jalan';
+    train.locoRef.condition = Math.max(0, (train.locoRef.condition || 100) - 10);
+    gameState.money += train.revenue;
+    SoundSystem.playCoin();
+    this.recordRevenue(train.revenue);
+    this.saveGame();
+
+    const profit = train.revenue - train.fuelCost;
+    UI.showNotification(`Kereta tiba! Omset: ${UI.formatRupiah(train.revenue)} | Profit Bersih: ${UI.formatRupiah(profit)}`);
+    this.refreshUI();
+  },
+
   recordRevenue(amount) {
     const currentDayLog = gameState.financeHistory.find(history => history.day === gameState.day);
     if (currentDayLog) currentDayLog.revenue += amount;
+  },
+
+  calculateTravelDuration(locomotive, route) {
+    const averageSpeed = locomotive.topSpeed || 80;
+    const distanceTotal = route.distanceTotal || route.distance || 0;
+
+    if (distanceTotal <= 0) return 0;
+
+    return distanceTotal / averageSpeed;
+  },
+
+  hireDriver(levelKey) {
+    const driverLevel = DRIVER_LEVELS[levelKey];
+    if (!driverLevel) return;
+
+    const driverNumber = gameState.drivers.length + 1;
+    gameState.drivers.push({
+      id: `DRIVER_${Date.now()}`,
+      name: `${driverLevel.name} ${driverNumber}`,
+      level: levelKey,
+      assignedLocoId: null
+    });
+
+    this.saveGame();
+    this.refreshUI();
+    UI.showNotification(`Masinis ${driverLevel.name} berhasil direkrut.`);
   },
 
   nextDay() {
@@ -166,7 +282,18 @@ const Game = {
       expense: 0
     });
 
-    const interest = Math.round(gameState.bankLoan * 0.05);
+    let totalSalary = 0;
+    if (gameState.drivers && gameState.drivers.length > 0) {
+      gameState.drivers.forEach(driver => {
+        const driverLevel = DRIVER_LEVELS[driver.level] || DRIVER_LEVELS.PEMULA;
+        totalSalary += driverLevel.salary;
+      });
+      gameState.money -= totalSalary;
+      this.recordExpense(totalSalary);
+      UI.showNotification(`Gaji harian ${gameState.drivers.length} masinis sebesar ${UI.formatRupiah(totalSalary)} telah dibayarkan.`);
+    }
+
+    const interest = Math.round(gameState.bankLoan * GAME_BALANCE.bankInterestRate);
     if (interest > 0) {
       gameState.money -= interest;
       this.recordExpense(interest);
@@ -305,6 +432,7 @@ const Game = {
     else if (rand > 0.60) currentWeather = WEATHERS.RAIN;
 
     const actualDuration = Math.round(selectedRoute.durationSeconds * currentWeather.speedMultiplier);
+    const distanceTotal = selectedRoute.distanceTotal || selectedRoute.distance || selectedRoute.durationSeconds * 100;
     const fuelCostPerSec = loco.fuelCostPerSec || LOCOMOTIVES[loco.id]?.fuelCostPerSec || 1500000;
     const fuelCost = Math.round(actualDuration * fuelCostPerSec * currentWeather.fuelMultiplier);
 
@@ -337,8 +465,11 @@ const Game = {
       origin: selectedRoute.origin,
       destination: selectedRoute.destination,
       progress: 0,
-      timeLeft: actualDuration,
-      totalDuration: actualDuration,
+      timeLeft: Math.ceil(distanceTotal / (loco.topSpeed || 80) * 60),
+      totalDuration: Math.ceil(distanceTotal / (loco.topSpeed || 80) * 60),
+      distanceTotal,
+      routeDistance: distanceTotal,
+      speed: loco.topSpeed || 80,
       startTime: Date.now(),
       revenue: totalRevenue,
       fuelCost: fuelCost,
@@ -348,31 +479,6 @@ const Game = {
 
     gameState.activeTrips.push(newTrip);
     this.refreshUI();
-
-    const interval = setInterval(() => {
-      newTrip.timeLeft -= 1;
-      newTrip.progress = Math.round(((actualDuration - newTrip.timeLeft) / actualDuration) * 100);
-
-      if (newTrip.timeLeft <= 0) {
-        clearInterval(interval);
-        
-        gameState.activeTrips = gameState.activeTrips.filter(t => t.id !== tripId);
-        newTrip.locoRef.status = 'Siap Jalan';
-        
-        newTrip.locoRef.condition = Math.max(0, (newTrip.locoRef.condition || 100) - 10);
-
-        gameState.money += newTrip.revenue;
-        SoundSystem.playCoin();
-        this.recordRevenue(newTrip.revenue);
-        
-        this.saveGame();
-        
-        const profit = newTrip.revenue - newTrip.fuelCost;
-        UI.showNotification(`Kereta tiba! Omset: ${UI.formatRupiah(newTrip.revenue)} | Profit Bersih: ${UI.formatRupiah(profit)}`);
-      }
-
-      this.refreshUI();
-    }, 1000);
   },
 
   bindEvents() {
