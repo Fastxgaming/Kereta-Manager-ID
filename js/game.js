@@ -645,6 +645,7 @@ const Game = {
     loco.coaches.push({ ...COACHES[coachKey] });
     this.saveGame();
     this.refreshUI();
+    if (typeof refreshMenuData === 'function') refreshMenuData();
   },
 
   repairLocomotive(locoIndex) {

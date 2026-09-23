@@ -524,7 +524,24 @@ function refreshMenuData() {
   const fleetList = document.getElementById('garasi-daftar-lokomotif');
   if (fleetList) {
     fleetList.innerHTML = gameState.fleet?.length
-      ? gameState.fleet.map(loco => `<p><strong>${loco.name}</strong> - ${loco.status || 'Siap Jalan'}</p>`).join('')
+      ? gameState.fleet.map((loco, index) => {
+        const coaches = loco.coaches?.length || 0;
+        const full = coaches >= (loco.maxCoaches || 0);
+        const unavailable = loco.status === 'Berjalan' || loco.status === 'Mogok' || full;
+        return `
+          <div class="garage-locomotive-item">
+            <div>
+              <strong>🚆 ${loco.name}</strong>
+              <small>Status: ${loco.status || 'Siap Jalan'} | Rangkaian: ${coaches}/${loco.maxCoaches || 0} gerbong</small>
+              <small>Terpasang: ${loco.coaches?.map(coach => coach.name).join(', ') || 'Belum ada gerbong'}</small>
+            </div>
+            <div class="garage-coach-actions">
+              <button onclick="Game.attachCoach(${index}, 'EKONOMI')" ${unavailable || !gameState.inventoryCoaches?.EKONOMI ? 'disabled' : ''}>+ Ekonomi (${gameState.inventoryCoaches?.EKONOMI || 0})</button>
+              <button onclick="Game.attachCoach(${index}, 'EKSEKUTIF')" ${unavailable || !gameState.inventoryCoaches?.EKSEKUTIF ? 'disabled' : ''}>+ Eksekutif (${gameState.inventoryCoaches?.EKSEKUTIF || 0})</button>
+            </div>
+          </div>
+        `;
+      }).join('')
       : '<p class="empty-state">Belum ada lokomotif.</p>';
   }
 
