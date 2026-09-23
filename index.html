@@ -2,27 +2,10 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Kereta Manager Indonesia</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyAYs4EpUk8oTAsycH5mXpstLzvgKEJpR9o",
-      authDomain: "kereta-manager-id.firebaseapp.com",
-      projectId: "kereta-manager-id",
-      storageBucket: "kereta-manager-id.firebasestorage.app",
-      messagingSenderId: "994183336782",
-      appId: "1:994183336782:web:609009faa58be61384841f",
-      measurementId: "G-NMH2K83543"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    getAnalytics(app);
-  </script>
 </head>
 <body>
 
@@ -52,37 +35,299 @@
 
   <header class="main-header">
     <h1>Kereta Manager Indonesia</h1>
-    <div class="user-profile-bar">
-      <span>🏢 <strong><span id="display-company">PT Kereta Express</span></strong></span>
-      <span>👤 Pemilik: <span id="display-owner">Budi</span></span>
+    <div class="user-profile-bar" onclick="Auth.openProfileModal()" style="cursor: pointer;" title="Klik untuk lihat detail profil">
+      <span>🏢 <strong id="display-company">Loading...</strong></span>
+      <span>👤 Pemilik: <strong id="display-owner">Loading...</strong></span>
       <span>🆔 UID: <code id="display-uid">LOADING...</code></span>
     </div>
     <div class="header-stats">
       <span>Kas: <b id="money">Rp 0</b></span> | 
       <span>Hari: <b id="day">1</b></span>
-      <span id="clock-display">Hari 1 | 🕒 06:00:00</span>
-      <span>Cuaca: <b id="current-weather">Cerah ☀️</b></span>
-      <span>Event: <b id="current-event">Hari Biasa</b></span>
-      <button class="btn-action" onclick="UI.toggleTheme()" style="background-color: #64748b;">🌗 Ganti Tema</button>
-      <button id="next-day-btn" class="btn-secondary">⏭️ Hari Berikutnya</button>
-      <button id="save-btn" class="btn-secondary">💾 Simpan</button>
-      <button id="reset-btn" class="btn-danger">🔄 Reset</button>
+      <div class="header-actions">
+        <button id="btn-next-day" class="btn-secondary" onclick="Game.nextDay()">⏩ Hari Berikutnya</button>
+        <button id="btn-save" class="btn-secondary" onclick="Game.saveGame(false)">💾 Simpan</button>
+        <button id="btn-reset" class="btn-danger" onclick="Game.resetGame()">🔄 Reset</button>
+      </div>
       <span id="save-status"></span>
     </div>
   </header>
 
-  <!-- Peta Visual Canvas -->
-  <section class="map-section">
-    <div class="map-card">
-      <div class="map-header">
-        <h3>🗺️ Peta Perjalanan Kereta</h3>
-        <div class="region-tabs">
-          <button class="btn-action active" id="tab-jawa" onclick="Game.switchRegion('JAWA')">🏝️ Pulau Jawa</button>
-          <button class="btn-action" id="tab-sumatra" onclick="Game.switchRegion('SUMATRA')">🌴 Pulau Sumatra</button>
+  <div id="game-status-bar" style="display:flex; gap:15px; align-items:center; background:#0f172a; padding:10px 16px; border-radius:8px; color:white; font-size:14px;">
+    <div style="color:#38bdf8; font-weight:bold;">📅 <span id="game-date-display">01 Agustus 2026</span></div>
+    <div style="color:#eab308; font-weight:bold;">⏰ <span id="game-time-display">06:00:00</span></div>
+    <div>🌤️ Cuaca: <span id="game-weather-display" style="color:#facc15;">Cerah</span></div>
+  </div>
+
+  <div class="game-stats-bar">
+    <span>💰 Kas: <strong id="display-cash">Rp 500.000.000</strong></span>
+    <span>🌤️ Cuaca: <strong id="display-weather">Cerah ☀️</strong></span>
+    <span>🎉 Event: <strong id="display-event">Hari Biasa 📅</strong></span>
+    <span>👥 Penumpang Hari Ini: <strong id="display-passengers">0 Penumpang</strong></span>
+  </div>
+
+  <div class="game-menu-bar" style="display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0;" aria-label="Menu utama">
+    <button class="menu-btn" onclick="openModal('modal-garasi')" style="background: #0284c7; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+      🚂 Garasi / Dipo Armada
+    </button>
+    <button class="menu-btn" onclick="openModal('modal-dealer')" style="background: #16a34a; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+      🛒 Dealer Kereta & Gerbong
+    </button>
+    <button class="menu-btn" onclick="openModal('modal-rute')" style="background: #ea580c; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+      🚦 Jalankan Kereta & Rute
+    </button>
+    <button class="menu-btn" onclick="openModal('modal-bank')" style="background: #ca8a04; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+      🏦 Pinjaman Bank
+    </button>
+    <button class="menu-btn" onclick="openModal('modal-leaderboard')" style="background: #9333ea; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+      🏆 Leaderboard Perusahaan
+    </button>
+    <button class="menu-btn" onclick="openModal('modal-sdm')" style="background: #0284c7; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+      👨‍✈️ Rekrut SDM
+    </button>
+    <button class="menu-btn" onclick="openModal('modal-tiket')" style="background: #eab308; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+      🎟️ Sistem Tiket
+    </button>
+    <button class="menu-btn" onclick="openModal('modal-topup')" style="background: #16a34a; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+      💎 Top-Up Kas & Paket Eksklusif (QRIS)
+    </button>
+    <button class="menu-btn" onclick="openModal('modal-claim')" style="background: #eab308; color: black; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+      🎁 Claim Item / Kas
+    </button>
+    <button id="btn-admin-panel" class="menu-btn" onclick="openModal('modal-admin')" style="display: none; background: #dc2626; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+      🛡️ Panel Admin / Mod
+    </button>
+    <button class="menu-btn" onclick="openModal('modal-marketplace')" style="background: #7c3aed; color: white; padding: 12px 20px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+      🏷️ Bursa C2C
+    </button>
+  </div>
+
+  <div id="modal-garasi" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="garasi-title">
+    <div class="modal-box">
+      <div class="modal-heading"><h3 id="garasi-title">🚂 Garasi & Stok Rangkaian</h3><button onclick="closeModal('modal-garasi')" aria-label="Tutup">✕</button></div>
+      <p>Stok gerbong ekonomi: <strong id="garasi-ekonomi">0</strong> | eksekutif: <strong id="garasi-eksekutif">0</strong></p>
+      <div id="garasi-daftar-lokomotif"><p class="empty-state">Belum ada lokomotif.</p></div>
+    </div>
+  </div>
+
+  <div id="modal-dealer" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="dealer-title">
+    <div class="modal-box modal-box-wide">
+      <div class="modal-heading"><h3 id="dealer-title">🛒 Dealer Armada & Gerbong</h3><button onclick="closeModal('modal-dealer')" aria-label="Tutup">✕</button></div>
+      <div class="dealer-tabs">
+        <button id="tab-btn-loko" onclick="switchDealerTab('lokomotif')">🚂 Lokomotif & Trainset</button>
+        <button id="tab-btn-gerbong" onclick="switchDealerTab('gerbong')">🚃 Gerbong Penumpang & Barang</button>
+      </div>
+      <div id="dealer-tab-lokomotif"><div id="loko-dealer-list" class="dealer-grid"></div></div>
+      <div id="dealer-tab-gerbong" style="display:none;"><div id="gerbong-dealer-list" class="dealer-grid"></div></div>
+    </div>
+  </div>
+
+  <div id="modal-rute" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="rute-title">
+    <div class="modal-box">
+      <div class="modal-heading"><h3 id="rute-title">🚦 Operasional & Manajemen Rute</h3><button onclick="closeModal('modal-rute')" aria-label="Tutup">✕</button></div>
+      <label for="select-active-train">Pilih Lokomotif Siap Jalan:</label>
+      <select id="select-active-train"><option value="">-- Pilih Kereta --</option></select>
+      <div style="margin-top: 15px;">
+        <label for="station-origin" style="font-size: 13px; font-weight: bold; color: #94a3b8;">Pilih Stasiun Asal:</label>
+        <select id="station-origin" style="width: 100%; padding: 8px; margin-top: 5px; background: #0f172a; color: white; border: 1px solid #334155; border-radius: 6px;" onchange="calculateRouteDetails()">
+          <option value="">-- Pilih Stasiun Asal --</option>
+        </select>
+      </div>
+      <div style="margin-top: 15px;">
+        <label for="station-destination" style="font-size: 13px; font-weight: bold; color: #94a3b8;">Pilih Stasiun Tujuan:</label>
+        <select id="station-destination" style="width: 100%; padding: 8px; margin-top: 5px; background: #0f172a; color: white; border: 1px solid #334155; border-radius: 6px;" onchange="calculateRouteDetails()">
+          <option value="">-- Pilih Stasiun Tujuan --</option>
+        </select>
+      </div>
+      <div id="route-info-box" style="margin-top: 15px; background: #0f172a; padding: 12px; border-radius: 6px; border: 1px solid #1e293b; display: none;">
+        <div style="font-size: 13px; color: #38bdf8;"><strong>Kategori Rute:</strong> <span id="route-category">-</span></div>
+        <div style="font-size: 13px; color: #f8fafc; margin-top: 4px;"><strong>Jarak Tempuh:</strong> <span id="route-distance">-</span> km</div>
+        <div style="font-size: 13px; color: #22c55e; margin-top: 4px;"><strong>Estimasi Pendapatan Tiket:</strong> Rp <span id="route-revenue">-</span></div>
+      </div>
+      <button onclick="startTrainJourney()">🚀 Berangkatkan Kereta Api!</button>
+    </div>
+  </div>
+
+  <div id="modal-bank" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="bank-title">
+    <div class="modal-box">
+      <div class="modal-heading"><h3 id="bank-title">🏦 Layanan Pinjaman Bank</h3><button onclick="closeModal('modal-bank')" aria-label="Tutup">✕</button></div>
+      <p>Hutang saat ini: <strong id="bank-debt-display">Rp 0</strong></p>
+      <div class="modal-actions">
+        <button onclick="Game.takeLoan(100000000); refreshMenuData()">Pinjam Rp 100 Jt</button>
+        <button onclick="Game.takeLoan(500000000); refreshMenuData()">Pinjam Rp 500 Jt</button>
+        <button onclick="Game.payLoan(); refreshMenuData()">Bayar Lunas Hutang</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-leaderboard" class="modal-overlay" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="leaderboard-title">
+    <div class="modal-box" style="max-width: 700px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h3 id="leaderboard-title" style="color: #facc15; margin: 0;">🏆 Leaderboard Perusahaan Teratas</h3>
+        <button onclick="closeModal('modal-leaderboard')" style="background:none; border:none; color:#94a3b8; font-size:20px; cursor:pointer;" aria-label="Tutup">✕</button>
+      </div>
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+          <thead>
+            <tr style="border-bottom: 2px solid #334155; color: #94a3b8;">
+              <th style="padding: 10px;">Peringkat</th>
+              <th style="padding: 10px;">Perusahaan</th>
+              <th style="padding: 10px;">Pemilik</th>
+              <th style="padding: 10px;">Total Kas</th>
+              <th style="padding: 10px;">Armada</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-table-body">
+            <tr><td colspan="5" style="text-align: center; padding: 20px; color: #64748b;">Memuat data leaderboard...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-sdm" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="sdm-title">
+    <div class="modal-box modal-box-wide">
+      <div class="modal-heading"><h3 id="sdm-title">👨‍✈️ Rekrutmen Masinis & Staf Perusahaan</h3><button onclick="closeModal('modal-sdm')" aria-label="Tutup">✕</button></div>
+      <div id="sdm-recruitment-list" class="dealer-grid"></div>
+    </div>
+  </div>
+
+  <div id="modal-tiket" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="tiket-title">
+    <div class="modal-box modal-box-wide">
+      <div class="modal-heading"><h3 id="tiket-title">🎟️ Sistem Tiket & Manajemen Tarif</h3><button onclick="closeModal('modal-tiket')" aria-label="Tutup">✕</button></div>
+      <div class="ticket-panel">
+        <h4>Atur Multiplier Tarif Tiket Perusahaan</h4>
+        <label for="ticket-price-slider">Sesuai standar layanan (0.8x s/d 2.0x normal):</label>
+        <input type="range" id="ticket-price-slider" min="0.8" max="2.0" step="0.1" value="1.0" oninput="updateTicketPriceLabel(this.value)">
+        <span id="ticket-multiplier-val">1.0x (Harga Normal)</span>
+      </div>
+      <div class="ticket-panel">
+        <h4>📊 Simulasi Penjualan Tiket Per Rute</h4>
+        <div id="ticket-sales-summary"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-topup" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="topup-title">
+    <div class="modal-box" style="max-width: 550px;">
+      <div class="modal-heading"><h3 id="topup-title">💳 Form Top-Up & Pembelian Unit Kereta</h3><button onclick="closeModal('modal-topup')" aria-label="Tutup">✕</button></div>
+      <p style="font-size: 12px; color: #94a3b8;">UID Akun Kamu: <strong id="user-uid-display" style="color: #38bdf8;">-</strong></p>
+      <p style="font-size: 12px; color: #94a3b8;">Saldo Gold: <strong id="gold-display" style="color: #eab308;">0 Gold</strong></p>
+      <div class="ticket-panel">
+        <h4>💰 Tukar Kas Menjadi Gold</h4>
+        <p> Kurs: 1 Gold = Rp 1.000.000</p>
+        <div class="modal-actions">
+          <button type="button" onclick="Game.exchangeCashForGold(100)">Tukar 100 Gold</button>
+          <button type="button" onclick="Game.exchangeCashForGold(500)">Tukar 500 Gold</button>
         </div>
       </div>
-      <div class="map-container">
-        <canvas id="mapCanvas" width="900" height="300"></canvas>
+      <div style="text-align: center; background: #0f172a; padding: 14px; border-radius: 8px; margin: 12px 0;">
+        <img src="assets/qris.png" alt="QR Code DANA Pembayaran" style="max-width: 220px; width: 100%; border-radius: 8px; border: 2px solid #38bdf8; background: white; padding: 6px;">
+        <p style="font-size: 11px; color: #cbd5e1; margin-top: 8px;">Scan via DANA, GoPay, OVO, ShopeePay, atau Mobile Banking</p>
+      </div>
+      <form onsubmit="sendTopUpToWA(event)" style="display: flex; flex-direction: column; gap: 10px;">
+        <label for="topup-sender-name" style="font-size: 12px;">Nama Pengirim / Pemilik Rekening:</label>
+        <input type="text" id="topup-sender-name" required placeholder="Contoh: Budi Santoso">
+        <label for="topup-package-select" style="font-size: 12px;">Pilih Paket Kas / Edisi Eksklusif:</label>
+        <select id="topup-package-select" style="padding: 8px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px;">
+          <optgroup label="--- PAKET SUNTIKAN KAS GAME ---">
+            <option value="Kas Game Rp 1 Miliar (Rp 5.000)">Suntikan Kas Rp 1 Miliar - Rp 5.000</option>
+            <option value="Kas Game Rp 10 Miliar (Rp 10.000)">Suntikan Kas Rp 10 Miliar - Rp 10.000</option>
+            <option value="Kas Game Rp 50 Miliar (Rp 30.000)">Suntikan Kas Rp 50 Miliar - Rp 30.000</option>
+          </optgroup>
+          <optgroup label="--- EDISI EKSKLUSIF & VIP ---">
+            <option value="[EKSKLUSIF] CC 201 Livery Vintage 1953 (Rp 25.000)">✨ CC 201 Livery Vintage 1953 - Rp 25.000</option>
+            <option value="[EKSKLUSIF] CC 206 Special Commemorative (Rp 35.000)">🔥 CC 206 Special Commemorative - Rp 35.000</option>
+            <option value="[EKSKLUSIF] Retro Luxury Wood Edition (Rp 30.000)">✨ Gerbong Retro Luxury Wood Edition - Rp 30.000</option>
+            <option value="[EKSKLUSIF] Gerbong VIP Kepresidenan (Rp 50.000)">👑 Gerbong VIP Kepresidenan - Rp 50.000</option>
+          </optgroup>
+        </select>
+        <button type="submit" class="whatsapp-button">📲 Konfirmasi Pembayaran via WhatsApp</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="modal-claim" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="claim-title">
+    <div class="modal-box" style="max-width: 450px; text-align: center;">
+      <div class="modal-heading"><h3 id="claim-title">🎁 Klaim Hadiah / Approval Admin</h3><button onclick="closeModal('modal-claim')" aria-label="Tutup">✕</button></div>
+      <p style="font-size: 13px; color: #94a3b8;">Cek apakah Admin telah menyetujui klaim item/kas untuk UID akun kamu.</p>
+      <button onclick="checkPendingClaim()" class="modal-primary-button">🔄 Cek & Klaim Sekarang</button>
+    </div>
+  </div>
+
+  <div id="modal-admin" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="admin-title">
+    <div class="modal-box" style="max-width: 600px;">
+      <div class="modal-heading"><h3 id="admin-title">🛡️ Panel Pengendali Admin</h3><button onclick="closeModal('modal-admin')" aria-label="Tutup">✕</button></div>
+      <div class="admin-panel-section">
+        <h4>✅ Approval Top-Up Player (Via UID)</h4>
+        <input type="text" id="admin-target-uid" placeholder="Masukkan Target UID Player">
+        <div class="admin-action-grid">
+          <button onclick="adminApproveTopUp('cash', 10000000000)">Kirim Kas +10 Miliar</button>
+          <button onclick="adminApproveTopUp('cash', 50000000000)">Kirim Kas +50 Miliar</button>
+          <button onclick="adminApproveTopUp('item', 'cc201_vintage')">Kirim CC 201 Vintage</button>
+          <button onclick="adminApproveTopUp('item', 'presidential_suite')">Kirim Gerbong VIP</button>
+          <button onclick="adminApproveTopUp('item', 'loko_gold_cc206')">Kirim CC206 Gold</button>
+          <button onclick="adminApproveTopUp('item', 'gerbong_panoramic')">Kirim Gerbong Panoramic</button>
+          <button onclick="adminApproveTopUp('gold', 500)">Kirim Gold +500</button>
+          <button onclick="adminApproveTopUp('gold', 1000)">Kirim Gold +1000</button>
+        </div>
+      </div>
+      <div class="admin-panel-section">
+        <h4>🚫 Banned / Unbanned System (Via UID)</h4>
+        <input type="text" id="admin-ban-uid" placeholder="Masukkan UID Player yang akan di-Banned">
+        <div class="admin-action-grid">
+          <button onclick="adminSetBanStatus(true)">Banned Player</button>
+          <button onclick="adminSetBanStatus(false)">Unban Player</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-marketplace" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="marketplace-title">
+    <div class="modal-box modal-box-wide">
+      <div class="modal-heading"><h3 id="marketplace-title">🏷️ Bursa Lokomotif C2C</h3><button onclick="closeModal('modal-marketplace')" aria-label="Tutup">✕</button></div>
+      <div class="marketplace-sell-panel">
+        <h4>Jual Lokomotif</h4>
+        <select id="marketplace-sell-loco"></select>
+        <input id="marketplace-sell-price" type="number" min="1" placeholder="Harga jual (Rp)">
+        <button onclick="sellMarketplaceLocomotive()">Pasang Listing</button>
+      </div>
+      <h4>Listing Tersedia</h4>
+      <div id="marketplace-listings" class="dealer-grid"></div>
+    </div>
+  </div>
+
+  <!-- Modal Detail Profil Akun -->
+  <div id="profile-modal" class="profile-modal">
+    <div class="profile-modal-card">
+      <button onclick="Auth.closeProfileModal()" class="profile-modal-close" aria-label="Tutup">✖</button>
+      <h3>Informasi Akun</h3>
+      <div class="profile-details">
+        <div><strong>Nama Pemilik:</strong> <span id="modal-owner">-</span></div>
+        <div><strong>Nama Perusahaan:</strong> <span id="modal-company">-</span></div>
+        <div><strong>Email:</strong> <span id="modal-email">-</span></div>
+        <div><strong>User UID:</strong><br><code id="modal-uid">-</code></div>
+      </div>
+      <div class="profile-modal-actions">
+        <button onclick="Auth.logout()" class="profile-logout">Keluar (Logout)</button>
+        <button onclick="Auth.deleteAccount()" class="profile-delete">Hapus Akun Permanen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Peta Visual Canvas -->
+  <section class="map-section">
+    <div class="map-card compact-map-card">
+      <div class="compact-map-header">
+        <h3>🗺️ Peta Perjalanan Kereta</h3>
+        <div class="compact-region-tabs">
+          <button class="btn-tab active" id="tab-jawa" onclick="Game.switchRegion('JAWA')">🏝️ Pulau Jawa</button>
+          <button class="btn-tab" id="tab-sumatra" onclick="Game.switchRegion('SUMATRA')">🌴 Pulau Sumatra</button>
+        </div>
+      </div>
+      <div class="map-container compact-map-container">
+        <div id="map-container" style="width: 100%; height: 320px; background: #0f172a; border-radius: 8px; overflow: hidden; position: relative;">
+          <svg id="route-svg" viewBox="0 0 1000 360" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; display: block;"></svg>
+        </div>
         <div class="map-controls">
           <button onclick="UI.zoomMap('in')" class="btn-zoom" title="Perbesar">+</button>
           <button onclick="UI.zoomMap('out')" class="btn-zoom" title="Perkecil">-</button>
@@ -95,73 +340,59 @@
   <section class="map-section finance-section">
     <div class="map-card">
       <h3>📊 Laporan & Analitik Keuangan (Per Hari)</h3>
-      <div class="finance-chart-wrapper">
+      <div class="finance-chart-wrapper" style="position: relative; height: 260px; width: 100%; max-width: 800px; margin: 0 auto;">
         <canvas id="financeChart"></canvas>
       </div>
     </div>
   </section>
 
-  <section class="bank-section">
-    <div class="card">
-      <h3>🏦 Layanan Pinjaman Bank</h3>
-      <div class="bank-content">
-        <div>
-          <p>Hutang Bank Saat Ini: <strong id="bank-loan-amount">Rp 0</strong></p>
-          <p><small>*Bunga harian: <strong>3%</strong> dari total hutang.</small></p>
-        </div>
-        <div class="bank-actions">
-          <button class="btn-action" onclick="Game.takeLoan(100000000)">Pinjam Rp 100 Jt</button>
-          <button class="btn-action" onclick="Game.takeLoan(500000000)">Pinjam Rp 500 Jt</button>
-          <button class="btn-action btn-pay-loan" onclick="Game.payLoan()">Bayar Lunas</button>
-        </div>
-      </div>
+  <section style="background: #0f172a; padding: 16px; border-radius: 12px; border: 1px solid #1e293b; margin-top: 20px;">
+    <h3 style="color: #38bdf8; margin-top: 0; display: flex; justify-content: space-between; align-items: center;">
+      <span>🚆 Kereta Sedang Beroperasi (Live)</span>
+      <span id="active-trains-count" style="font-size: 13px; color: #22c55e;">0 Kereta Aktif</span>
+    </h3>
+    <div id="active-trips-container" style="display: flex; flex-direction: column; gap: 10px; margin-top: 12px;">
+      <p id="no-active-trips" style="color: #64748b; font-size: 13px; text-align: center; margin: 12px 0;">
+        Belum ada kereta yang sedang beroperasi. Berangkatkan kereta di menu Operasional Rute.
+      </p>
     </div>
   </section>
 
-  <section class="card" style="margin-top: 24px;">
-    <h3>👨‍✈️ Manajemen SDM & Masinis</h3>
-    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
-      <button class="btn-action" onclick="Game.hireDriver('PEMULA')">Rekrut Pemula (Gaji Rp 200rb/hari)</button>
-      <button class="btn-action" onclick="Game.hireDriver('SENIOR')">Rekrut Senior (Gaji Rp 500rb/hari)</button>
-      <button class="btn-action" onclick="Game.hireDriver('MASTER')">Rekrut Master (Gaji Rp 1,2Jt/hari)</button>
-    </div>
-    <div id="driver-list"></div>
-  </section>
+  <!-- Firebase Compatibility SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAYs4EpUk8oTAsycH5mXpstLzvgKEJpR9o",
+      authDomain: "kereta-manager-id.firebaseapp.com",
+      projectId: "kereta-manager-id",
+      storageBucket: "kereta-manager-id.firebasestorage.app",
+      messagingSenderId: "994183336782",
+      appId: "1:994183336782:web:609009faa58be61384841f",
+      measurementId: "G-NMH2K83543"
+    };
 
-  <main class="game-container">
-    <!-- Toko & Stok -->
-    <section class="panel">
-      <h2>Toko Armada & Gerbong</h2>
-      <div class="shop-buttons">
-        <button id="buy-cc201-btn" class="btn-primary">Beli CC201 (Rp 120 Jt)</button>
-        <button id="buy-cc206-btn" class="btn-primary">Beli CC206 (Rp 220 Jt)</button>
-        <button id="buy-k3-btn" class="btn-primary">Beli Gerbong Ekonomi (Rp 30 Jt)</button>
-        <button id="buy-k1-btn" class="btn-primary">Beli Gerbong Eksekutif (Rp 60 Jt)</button>
-      </div>
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
 
-      <div class="inventory-info" style="margin-top: 20px;">
-        <h3>Stok Gerbong Bebas</h3>
-        <p>Ekonomi: <b id="free-k3">0</b> | Eksekutif: <b id="free-k1">0</b></p>
-      </div>
-    </section>
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    window.auth = auth;
+    window.db = db;
+  </script>
 
-    <!-- Dipo Armada -->
-    <section class="panel">
-      <h2>Dipo Rangkaian</h2>
-      <div id="fleet-list"></div>
-    </section>
-
-    <!-- Kereta Berjalan -->
-    <section class="panel full-width">
-      <h2>Kereta Beroperasi</h2>
-      <div id="active-trips"></div>
-    </section>
-  </main>
-
+  <!-- Script Aplikasi Game -->
   <script src="js/data.js"></script>
-  <script src="js/sound.js"></script>
   <script src="js/auth.js"></script>
+  <script src="js/tax.js"></script>
+  <script src="js/maintenance.js"></script>
+  <script src="js/marketplace.js"></script>
+  <script src="js/dealer.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/sound.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>
