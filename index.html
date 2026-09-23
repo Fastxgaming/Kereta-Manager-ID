@@ -6,16 +6,64 @@
   <title>Kereta Manager Indonesia</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAYs4EpUk8oTAsycH5mXpstLzvgKEJpR9o",
+      authDomain: "kereta-manager-id.firebaseapp.com",
+      projectId: "kereta-manager-id",
+      storageBucket: "kereta-manager-id.firebasestorage.app",
+      messagingSenderId: "994183336782",
+      appId: "1:994183336782:web:609009faa58be61384841f",
+      measurementId: "G-NMH2K83543"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    getAnalytics(app);
+  </script>
 </head>
 <body>
 
+  <!-- Modal Autentikasi -->
+  <div id="auth-overlay" class="auth-container">
+    <div class="auth-card">
+      <h2 id="auth-title">Kereta Manager Indonesia</h2>
+
+      <!-- Form Login / Register -->
+      <div id="auth-form">
+        <input type="email" id="auth-email" placeholder="Alamat Email (Gmail)" autocomplete="email">
+        <input type="password" id="auth-pass" placeholder="Kata Sandi" autocomplete="current-password">
+
+        <!-- Field khusus Pendaftaran -->
+        <div id="register-fields" style="display: none;">
+          <input type="text" id="auth-owner" placeholder="Nama Pemilik">
+          <input type="text" id="auth-company" placeholder="Nama Perusahaan Kereta">
+        </div>
+
+        <p id="auth-message" class="auth-message" role="status"></p>
+        <button id="btn-submit" onclick="Auth.submit()">Masuk</button>
+        <button class="btn-link" onclick="Auth.toggleMode()">Belum punya akun? Daftar</button>
+        <button class="btn-link" onclick="Auth.resetPassword()">Lupa Kata Sandi?</button>
+      </div>
+    </div>
+  </div>
+
   <header class="main-header">
     <h1>Kereta Manager Indonesia</h1>
+    <div class="user-profile-bar">
+      <span>🏢 <strong><span id="display-company">PT Kereta Express</span></strong></span>
+      <span>👤 Pemilik: <span id="display-owner">Budi</span></span>
+      <span>🆔 UID: <code id="display-uid">LOADING...</code></span>
+    </div>
     <div class="header-stats">
       <span>Kas: <b id="money">Rp 0</b></span> | 
       <span>Hari: <b id="day">1</b></span>
+      <span id="clock-display">Hari 1 | 🕒 06:00:00</span>
       <span>Cuaca: <b id="current-weather">Cerah ☀️</b></span>
       <span>Event: <b id="current-event">Hari Biasa</b></span>
+      <button class="btn-action" onclick="UI.toggleTheme()" style="background-color: #64748b;">🌗 Ganti Tema</button>
       <button id="next-day-btn" class="btn-secondary">⏭️ Hari Berikutnya</button>
       <button id="save-btn" class="btn-secondary">💾 Simpan</button>
       <button id="reset-btn" class="btn-danger">🔄 Reset</button>
@@ -33,7 +81,14 @@
           <button class="btn-action" id="tab-sumatra" onclick="Game.switchRegion('SUMATRA')">🌴 Pulau Sumatra</button>
         </div>
       </div>
-      <canvas id="mapCanvas" width="900" height="300"></canvas>
+      <div class="map-container">
+        <canvas id="mapCanvas" width="900" height="300"></canvas>
+        <div class="map-controls">
+          <button onclick="UI.zoomMap('in')" class="btn-zoom" title="Perbesar">+</button>
+          <button onclick="UI.zoomMap('out')" class="btn-zoom" title="Perkecil">-</button>
+          <button onclick="UI.zoomMap('reset')" class="btn-zoom" title="Reset Zoom">↻</button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -52,7 +107,7 @@
       <div class="bank-content">
         <div>
           <p>Hutang Bank Saat Ini: <strong id="bank-loan-amount">Rp 0</strong></p>
-          <p><small>*Bunga harian: <strong>5%</strong> dari total hutang.</small></p>
+          <p><small>*Bunga harian: <strong>3%</strong> dari total hutang.</small></p>
         </div>
         <div class="bank-actions">
           <button class="btn-action" onclick="Game.takeLoan(100000000)">Pinjam Rp 100 Jt</button>
@@ -61,6 +116,16 @@
         </div>
       </div>
     </div>
+  </section>
+
+  <section class="card" style="margin-top: 24px;">
+    <h3>👨‍✈️ Manajemen SDM & Masinis</h3>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
+      <button class="btn-action" onclick="Game.hireDriver('PEMULA')">Rekrut Pemula (Gaji Rp 200rb/hari)</button>
+      <button class="btn-action" onclick="Game.hireDriver('SENIOR')">Rekrut Senior (Gaji Rp 500rb/hari)</button>
+      <button class="btn-action" onclick="Game.hireDriver('MASTER')">Rekrut Master (Gaji Rp 1,2Jt/hari)</button>
+    </div>
+    <div id="driver-list"></div>
   </section>
 
   <main class="game-container">
@@ -95,6 +160,7 @@
 
   <script src="js/data.js"></script>
   <script src="js/sound.js"></script>
+  <script src="js/auth.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/game.js"></script>
 </body>
